@@ -135,8 +135,10 @@ char** findPath(char *args[])
         ptr = strtok(NULL, delim);
     }
 
-
-    int count = 2;
+    int count = 0;
+    while(args[count] != NULL){
+        count++;
+    }
     int i;
     int k;
     int a = 0;
@@ -164,10 +166,11 @@ char** findPath(char *args[])
                 strcpy(realPaths[a], temp[k]);
                 a++;
             }
-
         }
         free(temp);
     }
+    printf("@@@@");
+
     return realPaths;
 }
 
