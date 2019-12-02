@@ -5,6 +5,14 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+
+typedef struct node {
+    char* val;
+    struct node * next;
+} node_t;
+
+
 
 #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
 
@@ -122,7 +130,6 @@ char** findPath(char *args[])
     char *env = getenv("PATH");
     char *str = (char*)malloc(sizeof(char)*1000);
     strcpy(str, env); 
-    printf("%s", str);
     char delim[] = ":";
 
     char *ptr = strtok(str, delim);
@@ -192,34 +199,116 @@ char** splitByAmpersandOrSemiColumn(char *args[]){
     return newArgs;
 }*/
 
+void push(node_t * head, char* val) {
+    if(head == NULL){
+        head->val = (char*)malloc(sizeof(char)*128);
+        strcpy(head->val, val);
+        head->next = NULL;
+    }
+
+    node_t * current = head;
+    while (current->next != NULL) {
+        current = current->next;
+    }
+
+    /* now we can add a new variable */
+    current->next = malloc(sizeof(node_t));
+    current->next->val = (char*)malloc(sizeof(char)*128);
+    strcpy(current->next->val, val);
+    current->next->next = NULL;
+}
+
+void print_list(node_t * head) {
+    node_t * current = head;
+
+    while (current != NULL) {
+        printf("*******%s\n", current->val);
+        current = current->next;
+    }
+}
+
+void pop(node_t ** head) {
+    node_t * next_node = NULL;
+
+    if (*head == NULL) {
+        return;
+    }
+
+    next_node = (*head)->next;
+    free(*head);
+    *head = next_node;
+}
+
+int getLength(node_t * head){
+    int length = 0;
+    node_t * current = head;
+    while(current->next != NULL){
+        length++;
+        current = current->next;
+    }
+    return length;
+}
+
 int main(void)
 {
     char inputBuffer[MAX_LINE];   /*buffer to hold command entered */
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
+    int status;
 
+    node_t *head = NULL;
+    head = malloc(sizeof(node_t));
 
     while (1)
     {
+
         background = 0;
         printf("myshell: ");
         /*setup() calls exit() when Control-D is entered */
         setup(inputBuffer, args, &background);
+
+
+        char* mergedArgs = (char*)malloc(sizeof(char)* 128);
+        strcpy(mergedArgs, "");
+        int count = 0;
+        while (args[count] != NULL){
+            strcat(mergedArgs, args[count]);
+            strcat(mergedArgs, " ");
+            count++;
+        }
+
+
         
+        push(head, mergedArgs);
+        printf("%d", getLength(head));
+        if(getLength(head) == 3)
+            pop(&head);
+        
+
+        print_list(head);
+
         paths = findPath(args);
 
-        printf("---%s\n", paths[0]);
+        //printf("---%s\n", paths[0]);
 
+        
 
-        printf("@@@@%s", args[0]);
+        if(background == 1)
+            args[count-1] = NULL;
+
         pid_t pid;
         if ((pid = fork()) == -1)
             perror("fork error");
-        else if (pid == 0)
-        {
+        else if (pid == 0){
             execv(paths[0], args);
             printf("Return not expected. Must be an execv error.n");
+        }
+        else{
+            if(background == 1){
+                printf("i am parent and waiting");
+                wait(&status);
+            }
         }
 
         /** the steps are:
