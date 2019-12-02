@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
 
@@ -118,12 +119,15 @@ int isFileExists(const char *path)
 
 char** findPath(char *args[])
 {
-    char *str = getenv("PATH");
+    char *env = getenv("PATH");
+    char *str = (char*)malloc(sizeof(char)*1000);
+    strcpy(str, env); 
+    printf("%s", str);
     char delim[] = ":";
 
     char *ptr = strtok(str, delim);
     char **pathsArray;
-    pathsArray=(char**)malloc(sizeof(char*)*100);
+    pathsArray = (char**)malloc(sizeof(char*)*100);
     int j = 0;
 
     while(ptr != NULL)
@@ -135,10 +139,6 @@ char** findPath(char *args[])
         ptr = strtok(NULL, delim);
     }
 
-    int count = 0;
-    while(args[count] != NULL){
-        count++;
-    }
     int i;
     int k;
     int a = 0;
@@ -146,33 +146,51 @@ char** findPath(char *args[])
     char **temp;
     char **realPaths;
 
-
-    for(i = 0; i < count; i++)
+    temp = (char **)malloc(sizeof(char *) * 100);
+    realPaths = (char **)malloc(sizeof(char *) * 100);
+    for (k = 0; k < j; k++)
     {
-        temp=(char**)malloc(sizeof(char*)*100);
-        realPaths=(char**)malloc(sizeof(char*)*100);
-        for (k = 0; k < j; k++)
+        temp[k] = (char *)malloc(sizeof(char) * 100);
+        realPaths[k] = (char *)malloc(sizeof(char) * 100);
+
+        strcpy(temp[k], pathsArray[k]);
+        strcat(temp[k], "/");
+        strcat(temp[k], args[0]);
+        printf("\n%s", temp[k]);
+
+        if (isFileExists(temp[k]))
         {
-            temp[k] = (char *)malloc(sizeof(char)*100);
-            realPaths[k] = (char *)malloc(sizeof(char)*100);
-
-            strcpy(temp[k], pathsArray[k]);
-            strcat(temp[k], "/");
-            strcat(temp[k], args[i]);
-            printf("%s\n", temp[k]);
-
-            if(isFileExists(temp[k])){
-                printf("----found ---");
-                strcpy(realPaths[a], temp[k]);
-                a++;
-            }
+            printf("----found ---\n");
+            strcpy(realPaths[a], temp[k]);
+            a++;
         }
-        free(temp);
     }
-    printf("@@@@");
+    printf("\n");
+    free(temp);
 
     return realPaths;
 }
+
+/*
+char** splitByAmpersandOrSemiColumn(char *args[]){
+
+    char** newArgs;
+    newArgs = (char**)malloc(sizeof(char*)*32);
+
+    int count = 0;
+    while (args[count] != NULL){
+        count++;
+    }
+
+    int i;
+    for(i = 0; i < count; i++ ){
+        newArgs[i] = (char *)malloc(sizeof(char)*128);
+        newArgs[i] = args[i];
+        if(strcmp(args[i], "&"))
+            break;
+    }
+    return newArgs;
+}*/
 
 int main(void)
 {
@@ -188,30 +206,21 @@ int main(void)
         printf("myshell: ");
         /*setup() calls exit() when Control-D is entered */
         setup(inputBuffer, args, &background);
+        
         paths = findPath(args);
 
-        printf("---%s", paths[0]);
+        printf("---%s\n", paths[0]);
 
-        /*
+
+        printf("@@@@%s", args[0]);
         pid_t pid;
-        int i;
-        for (i = 0; i < count; i++)
+        if ((pid = fork()) == -1)
+            perror("fork error");
+        else if (pid == 0)
         {
-            printf("args %d = %s\n", i, args[i]);
-
-            char path[] = "/bin/";
-            strcat(path, args[i]);
-            char* arr[] = {"ls", "-l", "-R", "-a", NULL};
-
-            if ((pid = fork()) == -1)
-                perror("fork error");
-            else if (pid == 0)
-            {
-                execv(path, arr);
-                printf("Return not expected. Must be an execv error.n");
-            }
-
-        }*/
+            execv(paths[0], args);
+            printf("Return not expected. Must be an execv error.n");
+        }
 
         /** the steps are:
                         (1) fork a child process using fork()
