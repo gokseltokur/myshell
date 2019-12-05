@@ -6,13 +6,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdint.h>
 
+//creates commands linked list
 typedef struct node {
     char* val;
     struct node * next;
 } node_t;
-
-
 
 #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
 
@@ -21,10 +21,8 @@ in the next command line; separate it into distinct arguments (using blanks as
 delimiters), and set the args array entries to point to the beginning of what
 will become null-terminated, C-style strings. */
 
-void setup(char inputBuffer[], char *args[], int *background)
-{
+void setup(char inputBuffer[], char *args[], int *background) {
     int length, /* # of characters in the command line */
-
         i,     /* loop index for accessing inputBuffer array */
         start, /* index where beginning of next command parameter is */
         ct;    /* index of where to place the next parameter into args[] */
@@ -48,23 +46,19 @@ void setup(char inputBuffer[], char *args[], int *background)
     /* if the process is in the read() system call, read returns -1
     However, if this occurs, errno is set to EINTR. We can check this  value
     and disregard the -1 value */
-    if ((length < 0) && (errno != EINTR))
-    {
+    if ((length < 0) && (errno != EINTR)) {
         perror("error reading the command");
         exit(-1); /* terminate with error code of -1 */
     }
 
-    printf(">>%s<<", inputBuffer);
-    for (i = 0; i < length; i++)
-    {
+    printf(">>%s<<\n", inputBuffer);
+    for (i = 0; i < length; i++) {
         /* examine every character in the inputBuffer */
 
-        switch (inputBuffer[i])
-        {
+        switch (inputBuffer[i]) {
         case ' ':
         case '\t': /* argument separators */
-            if (start != -1)
-            {
+            if (start != -1) {
                 args[ct] = &inputBuffer[start]; /* set up pointer */
                 ct++;
             }
@@ -73,8 +67,7 @@ void setup(char inputBuffer[], char *args[], int *background)
             break;
 
         case '\n': /* should be the final char examined */
-            if (start != -1)
-            {
+            if (start != -1) {
                 args[ct] = &inputBuffer[start];
                 ct++;
             }
@@ -85,8 +78,7 @@ void setup(char inputBuffer[], char *args[], int *background)
         default: /* some other character */
             if (start == -1)
                 start = i;
-            if (inputBuffer[i] == '&')
-            {
+            if (inputBuffer[i] == '&') {
                 *background = 1;
                 inputBuffer[i - 1] = '\0';
             }
@@ -94,21 +86,11 @@ void setup(char inputBuffer[], char *args[], int *background)
     }                /* end of for */
     args[ct] = NULL; /* just in case the input line was > 80 */
 
-    /*for (i = 0; i < ct; i++)
-    {
-        printf("args %d = %s\n", i, args[i]);
-
-        char path[] = "/bin/";
-        strcat(path, args[i]);
-        char* arr[] = {"ls", "-l", "-R", "-a", NULL};
-        execv(path, arr);
-    }*/
-
-
 } /* end of setup routine */
 
-int isFileExists(const char *path)
-{
+
+//returns 1 if there is such a file
+int isFileExists(const char *path) {
     // Try to open file
     FILE *fptr = fopen(path, "r");
 
@@ -117,19 +99,17 @@ int isFileExists(const char *path)
         return 0;
 
     // File exists hence close file and return true.
-
     fclose(fptr);
 
     return 1;
 }
 
-
-
-char** findPath(char *args[])
-{
+//finds the path of the executable
+char** findPath(char *args[]) {
+    //splits path variable by : and copies into a paths array
     char *env = getenv("PATH");
     char *str = (char*)malloc(sizeof(char)*1000);
-    strcpy(str, env); 
+    strcpy(str, env);
     char delim[] = ":";
 
     char *ptr = strtok(str, delim);
@@ -137,8 +117,7 @@ char** findPath(char *args[])
     pathsArray = (char**)malloc(sizeof(char*)*100);
     int j = 0;
 
-    while(ptr != NULL)
-    {
+    while(ptr != NULL) {
         pathsArray[j] = (char *)malloc(sizeof(char)*100);
         strcpy(pathsArray[j], ptr);
         j++;
@@ -146,7 +125,6 @@ char** findPath(char *args[])
         ptr = strtok(NULL, delim);
     }
 
-    int i;
     int k;
     int a = 0;
 
@@ -155,24 +133,22 @@ char** findPath(char *args[])
 
     temp = (char **)malloc(sizeof(char *) * 100);
     realPaths = (char **)malloc(sizeof(char *) * 100);
-    for (k = 0; k < j; k++)
-    {
+    for (k = 0; k < j; k++) {
         temp[k] = (char *)malloc(sizeof(char) * 100);
         realPaths[k] = (char *)malloc(sizeof(char) * 100);
 
         strcpy(temp[k], pathsArray[k]);
         strcat(temp[k], "/");
         strcat(temp[k], args[0]);
-        printf("\n%s", temp[k]);
+        //printf("\n%s", temp[k]);
 
-        if (isFileExists(temp[k]))
-        {
-            printf("----found ---\n");
+        if (isFileExists(temp[k])) {
+            //printf("----found ----");
             strcpy(realPaths[a], temp[k]);
             a++;
         }
     }
-    printf("\n");
+    //printf("\n");
     free(temp);
 
     return realPaths;
@@ -199,13 +175,8 @@ char** splitByAmpersandOrSemiColumn(char *args[]){
     return newArgs;
 }*/
 
+//adds a new command to the list
 void push(node_t * head, char* val) {
-    if(head == NULL){
-        head->val = (char*)malloc(sizeof(char)*128);
-        strcpy(head->val, val);
-        head->next = NULL;
-    }
-
     node_t * current = head;
     while (current->next != NULL) {
         current = current->next;
@@ -218,17 +189,17 @@ void push(node_t * head, char* val) {
     current->next->next = NULL;
 }
 
-void print_list(node_t * head) {
-    node_t * current = head;
-
-    while (current != NULL) {
-        printf("*******%s\n", current->val);
-        current = current->next;
+//prints the linked list from the last added
+void reverse_display(node_t * head) {
+    if(head) {
+        reverse_display(head->next);
+        printf("%s\n ", head->val);
     }
 }
 
+//deletes the first executed command from the list
 void pop(node_t ** head) {
-    node_t * next_node = NULL;
+    node_t * next_node;
 
     if (*head == NULL) {
         return;
@@ -239,78 +210,103 @@ void pop(node_t ** head) {
     *head = next_node;
 }
 
-int getLength(node_t * head){
+//returns the command from the list with the given index
+char* GetNth(node_t* head, int index) {
+    node_t* current = head;
+
+    int count = 0;
+    while (current != NULL) {
+        if (count == index)
+            return current->val;
+        count++;
+        current = current->next;
+    }
+    return NULL;
+}
+
+//calculates the length of the linked list
+int getLength(node_t * head) {
     int length = 0;
     node_t * current = head;
-    while(current->next != NULL){
+    while(current->next != NULL) {
         length++;
         current = current->next;
     }
     return length;
 }
 
-int main(void)
-{
+int main(void) {
     char inputBuffer[MAX_LINE];   /*buffer to hold command entered */
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
-    int status;
+    //int status;
 
-    node_t *head = NULL;
+    node_t *head;
     head = malloc(sizeof(node_t));
 
-    while (1)
-    {
-
+    while (1) {
         background = 0;
         printf("myshell: ");
-        /*setup() calls exit() when Control-D is entered */
+        // seperates the command by spaces, adds to the args array and check if & character entered
         setup(inputBuffer, args, &background);
-
 
         char* mergedArgs = (char*)malloc(sizeof(char)* 128);
         strcpy(mergedArgs, "");
+
+        //concatenate the commands
         int count = 0;
-        while (args[count] != NULL){
-            strcat(mergedArgs, args[count]);
-            strcat(mergedArgs, " ");
-            count++;
+        while (args[count] != NULL) {
+                strcat(mergedArgs, args[count]);
+                strcat(mergedArgs, " ");
+                count++;
         }
 
+        //add the commands to the list if the command is not history
+        if(strcmp(args[0], "history")){
+                push(head, mergedArgs);
+        }
 
-        
-        push(head, mergedArgs);
-        printf("%d", getLength(head));
-        if(getLength(head) == 3)
+        //if there are more than 10 commands delete the first executed command
+        if(getLength(head) == 10)
             pop(&head);
-        
 
-        print_list(head);
-
-        paths = findPath(args);
-
-        //printf("---%s\n", paths[0]);
-
-        
-
-        if(background == 1)
-            args[count-1] = NULL;
-
-        pid_t pid;
-        if ((pid = fork()) == -1)
-            perror("fork error");
-        else if (pid == 0){
-            execv(paths[0], args);
-            printf("Return not expected. Must be an execv error.n");
+        //if the command is history, print the list
+        if(!strcmp(args[0], "history") && args[1] == NULL) {
+            reverse_display(head);
         }
-        else{
-            if(background == 1){
-                printf("i am parent and waiting");
-                wait(&status);
+
+        else {
+            //if the command is history with and index value, execute the command on that index
+            if(!strcmp(args[0], "history") && args[1] != NULL){
+                strcpy(*args, GetNth(head, 9 - atoi(args[2])));
             }
-        }
 
+            paths = findPath(args);
+
+            if(background == 1)
+                args[count-1] = NULL;
+
+            pid_t pid;
+
+            if ((pid = fork()) == -1)
+                perror("fork error");
+            //child executes the command
+            else if (pid == 0) {
+                execv(paths[0], args);
+                printf("Return not expected. Must be an execv error.n");
+            }
+            //parent waits if the command is foreground
+            else
+            {
+                if(background == 0)
+                {
+                    printf("i am parent and waiting");
+                    wait(NULL);
+                }
+            }
+
+        }
         /** the steps are:
                         (1) fork a child process using fork()
                         (2) the child process will invoke execv()
