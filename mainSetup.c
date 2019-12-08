@@ -349,6 +349,20 @@ void enqueueBackgroundQ(pid_t pid, pid_t groupPid, char* command){
 
 }
 
+void dequeueBackgroundQ(int* pid, int* groupPid){
+    if(backgroundQ != NULL){
+        printf("There is no background process.");
+        return;
+    }
+
+    *pid = backgroundQ->pid;
+    *groupPid = backgroundQ->groupPid;
+    backgroundQueue* dequeue = backgroundQ;
+    backgroundQ = dequeue->next;
+    dequeue->next = NULL;
+    free(dequeue);
+}
+
 void execute(char** paths, char* args[], int* background){
     if(*background != 0){
         signal(SIGCHLD, childHandler);
@@ -450,51 +464,68 @@ int main(void) {
         if(!strcmp(args[0], "history") && args[1] == NULL) {
             reverse_display(head);
         }
+        if(!strcmp(args[0], "exit")) {
+            if(backgroundQ != NULL){
+                printf("There is some background processes. You need to kill them before exit.");
+            }else{
+                exit(0);
+            }
+        }
+        if(!strcmp(args[0], "fg")){
+            if(backgroundQ == NULL)
+                printf("There is no background process.");
+            else{
+                ///////////////////////////////
+                // THERE WILL BE CODED - GOKSEL//
+                //////////////////////////////////
+            }
+        }
+        
 
         else {
             //if the command is history with and index value, execute the command on that index
-	    char *newArgs[128];
-	    int a  = 0;
-            while(args[a] != NULL){
-		a++;
-	    }
-        if(!strcmp(args[0], "history") && args[1] != NULL){
-		    newArgs[0] = GetNth(head, getLength(head) - atoi(args[2]));
-		    newArgs[0] = strtok(newArgs[0], " ");
-		    newArgs[1] = NULL;
-		    paths = findPath(newArgs);
-		    execute(paths, newArgs, &background);
-        }
-	    else {	
-		    paths = findPath(args);
-
-		    if(background == 1)
-		        args[count-1] = NULL;
-
-
-		    execute(paths, args, &background);
-            /*
-            pid_t pid;
-
-            if ((pid = fork()) == -1)
-                perror("fork error");
-            //child executes the command
-            else if (pid == 0) {
-                execv(paths[0], args);
-                printf("Return not expected. Must be an execv error.n");
+            char *newArgs[128];
+            int a  = 0;
+                while(args[a] != NULL){
+            a++;
             }
-            //parent waits if the command is foreground
-            else
-            {
-                if(background == 0)
-                {
-                    printf("i am parent and waiting\n");
-                    wait(NULL);
+            if(!strcmp(args[0], "history") && args[1] != NULL){
+                newArgs[0] = GetNth(head, getLength(head) - atoi(args[2]));
+                newArgs[0] = strtok(newArgs[0], " ");
+                newArgs[1] = NULL;
+                paths = findPath(newArgs);
+                execute(paths, newArgs, &background);
+            }
+            else {	
+                paths = findPath(args);
+
+                if(background == 1)
+                    args[count-1] = NULL;
+
+
+                execute(paths, args, &background);
+                /*
+                pid_t pid;
+
+                if ((pid = fork()) == -1)
+                    perror("fork error");
+                //child executes the command
+                else if (pid == 0) {
+                    execv(paths[0], args);
+                    printf("Return not expected. Must be an execv error.n");
                 }
+                //parent waits if the command is foreground
+                else
+                {
+                    if(background == 0)
+                    {
+                        printf("i am parent and waiting\n");
+                        wait(NULL);
+                    }
+                }
+                */
             }
-            */
         }
-}
         /** the steps are:
                         (1) fork a child process using fork()
                         (2) the child process will invoke execv()
