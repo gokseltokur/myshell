@@ -299,10 +299,10 @@ void childHandler() {
             // If it's found in the head of queue
             if(backgroundQ != NULL && backgroundQ->pid == pid) {
                 // Remove process from the queue
-                backgroundQueue *kicked = backgroundQ;
-                backgroundQ = kicked->next;
-                kicked->next = NULL;
-                free(kicked);
+                backgroundQueue *killedProcess = backgroundQ;
+                backgroundQ = killedProcess->next;
+                killedProcess->next = NULL;
+                free(killedProcess);
                 return;
             }
             // If it's not on the head of queue
@@ -312,10 +312,10 @@ void childHandler() {
                 while(iter->next != NULL) {
                     if(iter->next->pid == pid) {
                         // after finding, kick it from the queue
-                        backgroundQueue *kicked = iter->next;
-                        kicked->next = iter->next;
-                        kicked->next = NULL;
-                        free(kicked);
+                        backgroundQueue *killedProcess = iter->next;
+                        killedProcess->next = iter->next;
+                        killedProcess->next = NULL;
+                        free(killedProcess);
                         return;
                     }
                 }
@@ -453,17 +453,26 @@ int main(void) {
 
         else {
             //if the command is history with and index value, execute the command on that index
-            if(!strcmp(args[0], "history") && args[1] != NULL){
-                strcpy(*args, GetNth(head, 9 - atoi(args[2])));
-            }
+	    char *newArgs[128];
+	    int a  = 0;
+            while(args[a] != NULL){
+		a++;
+	    }
+        if(!strcmp(args[0], "history") && args[1] != NULL){
+		    newArgs[0] = GetNth(head, getLength(head) - atoi(args[2]));
+		    newArgs[0] = strtok(newArgs[0], " ");
+		    newArgs[1] = NULL;
+		    paths = findPath(newArgs);
+		    execute(paths, newArgs, &background);
+        }
+	    else {	
+		    paths = findPath(args);
 
-            paths = findPath(args);
-
-            if(background == 1)
-                args[count-1] = NULL;
+		    if(background == 1)
+		        args[count-1] = NULL;
 
 
-            execute(paths, args, &background);
+		    execute(paths, args, &background);
             /*
             pid_t pid;
 
@@ -485,6 +494,7 @@ int main(void) {
             }
             */
         }
+}
         /** the steps are:
                         (1) fork a child process using fork()
                         (2) the child process will invoke execv()
