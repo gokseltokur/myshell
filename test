@@ -1,0 +1,22 @@
+/*else if(args[1] != NULL && strcmp(args[1], ">")){
+                printf("ilk");
+            }
+
+            else if(strcmp(args[1], ">>")){
+                                printf("ikinci");
+            }
+
+            else if(strcmp(args[1], "<") && args[3] == NULL){
+                printf("üç");
+
+            }
+
+            else if(strcmp(args[1], "<") && args[3] != NULL){
+                printf("dört");
+
+            }
+
+            else if(strcmp(args[1], "2>")){
+                printf("beş");
+
+            }*/

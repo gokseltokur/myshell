@@ -1,12 +1,18 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdint.h>
+
+#define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
 
 //creates commands linked list
 typedef struct node {
@@ -14,7 +20,17 @@ typedef struct node {
     struct node * next;
 } node_t;
 
-#define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
+typedef struct background_queue {
+    pid_t pid;
+    pid_t groupPid;
+    char* command;
+    struct background_queue* next;
+} backgroundQueue;
+
+backgroundQueue* backgroundQ = NULL;
+int isThereAnyForegroundProcess = 0;
+int currentForegroundProcess;
+
 
 /* The setup function below will not return any value, but it will just: read
 in the next command line; separate it into distinct arguments (using blanks as
@@ -109,7 +125,7 @@ char** findPath(char *args[]) {
     //splits path variable by : and copies into a paths array
     char *env = getenv("PATH");
     char *str = (char*)malloc(sizeof(char)*1000);
-    strcpy(str, env);
+    strcpy(str, env);  
     char delim[] = ":";
 
     char *ptr = strtok(str, delim);
@@ -124,7 +140,30 @@ char** findPath(char *args[]) {
 
         ptr = strtok(NULL, delim);
     }
-
+int a;
+    if(!strcmp(args[0], "path")) {
+	if (args[1] == NULL){
+		for (a = 0; a < j; a++)
+		  printf("\n%s", pathsArray[a]);
+	}
+	else if (!strcmp(args[1], "-")){
+		for (a = 0; a < j ; a++){
+		  if(!strcmp(args[2], pathsArray[a])){
+			pathsArray[a] = NULL;
+			j--;
+		  }
+		  printf("\n%s", pathsArray[a]);
+		}
+	}
+	else if (!strcmp(args[1], "+")){
+		pathsArray[j++] = args[2];
+		for (a = 0; a < j; a++)
+		  printf("\n%s", pathsArray[a]);
+	}
+	return pathsArray;
+    }
+    else {
+    
     int k;
     int a = 0;
 
@@ -152,6 +191,7 @@ char** findPath(char *args[]) {
     free(temp);
 
     return realPaths;
+    }
 }
 
 /*
@@ -235,12 +275,165 @@ int getLength(node_t * head) {
     return length;
 }
 
+// ^Z - Stop the currently running foreground process, as well as any descendants of that
+// process (e.g., any child processes that it forked). If there is no foreground process, then the
+// signal should have no effect.
+static void signalHandler(int sigNum) {
+    int status;
+    // If there is a foreground process
+    if(isThereAnyForegroundProcess) {
+        // kill current process
+        kill(currentForegroundProcess, 0);
+        if(errno == ESRCH) {
+            fprintf(stderr, "\nProcess %d not found\n", currentForegroundProcess);
+            isThereAnyForegroundProcess = 0;
+            printf("myshell: ");
+            fflush(stdout);
+        }else{ // if there is still foreground process
+            kill(currentForegroundProcess, SIGKILL);
+            waitpid(-currentForegroundProcess, &status, WNOHANG);
+            printf("\n");
+            isThereAnyForegroundProcess = 0;
+        }
+    }
+    // If there is no foreground process
+    else{
+        printf("\nmyshell: ");
+        fflush(stdout);
+    }
+}
+
+void childHandler() {
+    int status;
+    //union wait wst;
+    pid_t pid;
+
+    while(1) {
+        // Get pid of terminating process
+        pid = wait3(&status, WNOHANG, NULL);
+        if (pid == 0){
+            return;
+        }else if (pid == -1){
+            return;
+        }
+        // With child process pid
+        else {
+            // Kick that process from the background process queue because it's not running anymore
+            // Search for terminated process in the queue
+            // If it's found in the head of queue
+            if(backgroundQ != NULL && backgroundQ->pid == pid) {
+                // Remove process from the queue
+                backgroundQueue *kicked = backgroundQ;
+                backgroundQ = kicked->next;
+                kicked->next = NULL;
+                free(kicked);
+                return;
+            }
+            // If it's not on the head of queue
+            else if(backgroundQ != NULL) {
+                backgroundQueue* iter = backgroundQ;
+                // Find process in the queue
+                while(iter->next != NULL) {
+                    if(iter->next->pid == pid) {
+                        // after finding, kick it from the queue
+                        backgroundQueue *kicked = iter->next;
+                        kicked->next = iter->next;
+                        kicked->next = NULL;
+                        free(kicked);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void enqueueBackgroundQ(pid_t pid, pid_t groupPid, char* command){
+    if(backgroundQ == NULL){
+        backgroundQ = (backgroundQueue*)malloc(sizeof(backgroundQueue));
+        backgroundQ->command = (char*)malloc(sizeof(char)*strlen(command));
+        strcpy(backgroundQ->command, command);
+        backgroundQ->pid = pid;
+        backgroundQ->groupPid = groupPid;
+        backgroundQ->next = NULL;
+        return;
+    }
+
+    backgroundQueue* last = backgroundQ;
+    while(last->next != NULL){
+        last = last->next;
+    }
+    backgroundQueue* new = (backgroundQueue*)malloc(sizeof(backgroundQueue));
+        new->command = (char*)malloc(sizeof(char)*strlen(command));
+        strcpy(new->command, command);
+        new->pid = pid;
+        new->groupPid = groupPid;
+        new->next = NULL;
+        last->next = new;
+
+}
+
+void execute(char** paths, char* args[], int* background){
+    if(*background != 0){
+        signal(SIGCHLD, childHandler);
+    }
+    pid_t childPid;
+    childPid = fork();
+
+    // Fork error
+    if(childPid == -1) {
+        fprintf(stderr, "Failed to fork.\n");
+        return;
+    }
+    // Child
+    if(childPid == 0) {
+        execv(paths[0], args);
+        printf("Return not expected. Must be an execv error.n");
+        return;
+    }
+    // Parent
+    int status;
+    // foreground
+    if(*background == 0) {
+        isThereAnyForegroundProcess = 1;
+        currentForegroundProcess = childPid;
+        // wait child terminates
+        waitpid(childPid, &status, 0);
+        isThereAnyForegroundProcess = 0;
+    }
+    // background
+    else {
+        // Enqueue background process and print
+        enqueueBackgroundQ(childPid, getpgrp(), args[0]);
+        
+        backgroundQueue* temp = backgroundQ;
+        if(temp == NULL)
+            printf("There is no background process.\n");
+        int i = 0;
+        for(i = 0; temp != NULL; i++){
+            printf("%d. Background Process' Pid: %d Group Pid: %d Command: %s\n", i , temp->pid, temp->groupPid, temp->command);
+            temp = temp->next;
+        }
+    }
+    *background = 0;
+
+}
+
 int main(void) {
     char inputBuffer[MAX_LINE];   /*buffer to hold command entered */
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
-    //int status;
+    
+    // sigaction init
+    struct sigaction signalAction;
+    signalAction.sa_handler = signalHandler;
+    signalAction.sa_flags = SA_RESTART;
+    // sigaction error check
+    if ((sigemptyset( &signalAction.sa_mask ) == -1) || ( sigaction(SIGTSTP, &signalAction, NULL) == -1 ) ) {
+        fprintf(stderr, "Couldn't set SIGTSTP handler\n");
+        return 1;
+    }
 
     node_t *head;
     head = malloc(sizeof(node_t));
@@ -248,8 +441,14 @@ int main(void) {
     while (1) {
         background = 0;
         printf("myshell: ");
+        fflush(NULL);
         // seperates the command by spaces, adds to the args array and check if & character entered
         setup(inputBuffer, args, &background);
+
+        // Null argument handler
+        if (args[0] == NULL)
+            continue;
+        
 
         char* mergedArgs = (char*)malloc(sizeof(char)* 128);
         strcpy(mergedArgs, "");
@@ -276,17 +475,33 @@ int main(void) {
             reverse_display(head);
         }
 
+	else if(!strcmp(args[0], "path")) {
+	    findPath(args);
+        }
+
         else {
             //if the command is history with and index value, execute the command on that index
+	    char *newArgs[128];
+	    int a  = 0;
+            while(args[a] != NULL){
+		a++;
+	    }
             if(!strcmp(args[0], "history") && args[1] != NULL){
-                strcpy(*args, GetNth(head, 9 - atoi(args[2])));
+		newArgs[0] = GetNth(head, getLength(head) - atoi(args[2]));
+		newArgs[0] = strtok(newArgs[0], " ");
+		newArgs[1] = NULL;
+		paths = findPath(newArgs);
+		execute(paths, newArgs, &background);
             }
+	    else {	
+		    paths = findPath(args);
 
-            paths = findPath(args);
+		    if(background == 1)
+		        args[count-1] = NULL;
 
-            if(background == 1)
-                args[count-1] = NULL;
 
+		    execute(paths, args, &background);
+            /*
             pid_t pid;
 
             if ((pid = fork()) == -1)
@@ -301,12 +516,13 @@ int main(void) {
             {
                 if(background == 0)
                 {
-                    printf("i am parent and waiting");
+                    printf("i am parent and waiting\n");
                     wait(NULL);
                 }
             }
-
+            */
         }
+}
         /** the steps are:
                         (1) fork a child process using fork()
                         (2) the child process will invoke execv()
