@@ -1,0 +1,8 @@
+at.txt
+a.txt
+b.txt
+mainSetup
+mainSetup.c
+mainSetup.o
+test
+myshell: 

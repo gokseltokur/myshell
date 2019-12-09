@@ -1,0 +1,16 @@
+a.txt
+mainSetup
+mainSetup.c
+mainSetup.o
+test
+myshell: >>ls
+><<
+a.txt
+mainSetup
+mainSetup.c
+mainSetup.o
+test
+myshell: >>pwd
+<<
+/home/buse/Desktop/myshell
+myshell: 
