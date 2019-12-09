@@ -286,7 +286,13 @@ static void signalHandler() {
     if(isThereAnyForegroundProcess) {
         // kill current process
         kill(currentForegroundProcess, 0);
-        if{ // if there is still foreground process
+        if(errno == ESRCH) {
+            fprintf(stderr, "\nProcess %d not found\n", currentForegroundProcess);
+            isThereAnyForegroundProcess = 0;
+            printf("myshell: ");
+            fflush(stdout);
+        }
+        else{ // if there is still foreground process
             kill(currentForegroundProcess, SIGKILL);
             waitpid(-currentForegroundProcess, &status, WNOHANG);
             printf("\n");
@@ -368,19 +374,31 @@ void enqueueBackgroundQ(pid_t pid, char* command){
         last->next = new;
 }
 
-void deleteByPid(backgroundQueue **head_ref, int key) 
-{ 
-    backgroundQueue* temp = *head_ref;
-    backgroundQueue* prev = *head_ref;
+void deleteByPid(int pid){
+    backgroundQueue *prev, *cur;
 
-    while(temp != NULL){
-        if(temp->pid == key){
-            prev->next = temp->next;
-            free(temp);
-            break;
+    while(backgroundQ != NULL && backgroundQ->pid == pid){
+        prev = backgroundQ;
+        backgroundQ = backgroundQ->next;
+        free(prev);
+    }
+
+    prev = NULL;
+    cur = backgroundQ;
+
+    while(cur != NULL){
+        if(cur->pid == pid){
+            if(prev != NULL){
+                prev ->next = cur->next;
+            }
+
+            free(cur);
+            cur = prev->next;
         }
-        prev = temp;
-        temp = temp->next;
+        else{
+            prev = cur;
+            cur = cur->next;
+        }
     }
 }
 
@@ -445,7 +463,6 @@ int main(void) {
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
-    int status;
     
     // sigaction init
     struct sigaction signalAction;
@@ -556,12 +573,7 @@ int main(void) {
                 // THERE WILL BE CODED - GOKSEL//
                 //////////////////////////////////
                 removeChar(args[1], '%');
-                deleteByPid(&backgroundQ ,atoi(args[1]));
-                isThereAnyForegroundProcess = 1;
-                currentForegroundProcess = atoi(args[1]);
-                kill(atoi(args[1]), SIGCONT);
-                waitpid(atoi(args[1]), &status, WUNTRACED);
-
+                deleteByPid(atoi(args[1]));
                 backgroundQueue* temp = backgroundQ;
                 int i = 0;
                 for (i = 0; temp != NULL; i++)
