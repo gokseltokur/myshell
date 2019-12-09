@@ -474,6 +474,23 @@ int main(void) {
         if(!strcmp(args[0], "history") && args[1] == NULL) {
             reverse_display(head);
         }
+	
+	else if(!strcmp(args[0], "exit")) {
+            if(backgroundQ != NULL){
+                printf("There is some background processes. You need to kill them before exit.");
+            }else{
+                exit(0);
+            }
+        }
+        else if(!strcmp(args[0], "fg")){
+            if(backgroundQ == NULL)
+                printf("There is no background process.");
+            else{
+                ///////////////////////////////
+                // THERE WILL BE CODED - GOKSEL//
+                //////////////////////////////////
+            }
+        }
 
 	else if(!strcmp(args[0], "path")) {
 	    findPath(args);
