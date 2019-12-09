@@ -13,8 +13,8 @@
 #include <stdint.h>
 
 #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
-#define CREATE_FLAGS (O_WRONLY | O_CREAT | O_APPEND)
-#define CREATE_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+/*#define CREATE_FLAGS (O_WRONLY | O_CREAT | O_APPEND)
+#define CREATE_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)*/
 
 //creates commands linked list
 typedef struct node {
@@ -328,10 +328,10 @@ void childHandler() {
             // If it's found in the head of queue
             if(backgroundQ != NULL && backgroundQ->pid == pid) {
                 // Remove process from the queue
-                backgroundQueue *kicked = backgroundQ;
-                backgroundQ = kicked->next;
-                kicked->next = NULL;
-                free(kicked);
+                backgroundQueue *killedProcess = backgroundQ;
+                backgroundQ = killedProcess->next;
+                killedProcess->next = NULL;
+                free(killedProcess);
                 return;
             }
             // If it's not on the head of queue
@@ -341,10 +341,10 @@ void childHandler() {
                 while(iter->next != NULL) {
                     if(iter->next->pid == pid) {
                         // after finding, kick it from the queue
-                        backgroundQueue *kicked = iter->next;
-                        kicked->next = iter->next;
-                        kicked->next = NULL;
-                        free(kicked);
+                        backgroundQueue *killedProcess = iter->next;
+                        killedProcess->next = iter->next;
+                        killedProcess->next = NULL;
+                        free(killedProcess);
                         return;
                     }
                 }
@@ -376,6 +376,34 @@ void enqueueBackgroundQ(pid_t pid, pid_t groupPid, char* command){
         new->next = NULL;
         last->next = new;
 
+}
+
+void deleteByPid(int pid){
+    backgroundQueue *prev, *cur;
+
+    while(backgroundQ != NULL && backgroundQ->pid == pid){
+        prev = backgroundQ;
+        backgroundQ = backgroundQ->next;
+        free(prev);
+    }
+
+    prev = NULL;
+    cur = backgroundQ;
+
+    while(cur != NULL){
+        if(cur->pid == pid){
+            if(prev != NULL){
+                prev ->next = cur->next;
+            }
+
+            free(cur);
+            cur = prev->next;
+        }
+        else{
+            prev = cur;
+            cur = cur->next;
+        }
+    }
 }
 
 void execute(char** paths, char* args[], int* background){
@@ -410,7 +438,7 @@ void execute(char** paths, char* args[], int* background){
     else {
         // Enqueue background process and print
         enqueueBackgroundQ(childPid, getpgrp(), args[0]);
-
+        
         backgroundQueue* temp = backgroundQ;
         if(temp == NULL)
             printf("There is no background process.\n");
@@ -424,12 +452,22 @@ void execute(char** paths, char* args[], int* background){
 
 }
 
+void removeChar(char *str, char garbage) {
+
+    char *src, *dst;
+    for (src = dst = str; *src != '\0'; src++) {
+        *dst = *src;
+        if (*dst != garbage) dst++;
+    }
+    *dst = '\0';
+}
+
 int main(void) {
     char inputBuffer[MAX_LINE];   /*buffer to hold command entered */
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
-
+    
     // sigaction init
     struct sigaction signalAction;
     signalAction.sa_handler = signalHandler;
@@ -453,7 +491,7 @@ int main(void) {
         // Null argument handler
         if (args[0] == NULL)
             continue;
-
+        
 
         char* mergedArgs = (char*)malloc(sizeof(char)* 128);
         strcpy(mergedArgs, "");
@@ -497,7 +535,7 @@ int main(void) {
             if(in){
                 // fdo is file-descriptor
                 int fd0;
-                if ((fd0 = open(input, CREATE_FLAGS, CREATE_MODE)) < 0){
+                if ((fd0 = open(input, O_RDONLY, 0)) < 0){
                     perror("Couldn't open input file");
                     exit(0);
                 }
@@ -523,43 +561,64 @@ int main(void) {
         if(!strcmp(args[0], "history") && args[1] == NULL) {
             reverse_display(head);
         }
-
-        else if(!strcmp(args[0], "exit")) {
-                if(backgroundQ != NULL){
-                    printf("There is some background processes. You need to kill them before exit.");
-                }else{
-                    exit(0);
-                }
+        if(!strcmp(args[0], "exit")) {
+            if(backgroundQ != NULL){
+                printf("There is some background processes. You need to kill them before exit.");
+            }else{
+                exit(0);
             }
-            else if(!strcmp(args[0], "fg")){
-                if(backgroundQ == NULL)
+        }
+        if(!strcmp(args[0], "fg")){
+            printf("@@@@@");
+            if(backgroundQ == NULL)
+                printf("There is no background process.");
+            else{
+                ///////////////////////////////
+                // THERE WILL BE CODED - GOKSEL//
+                //////////////////////////////////
+                removeChar(args[1], '%');
+                deleteByPid(atoi(args[1]));
+                backgroundQueue* temp = backgroundQ;
+                int i = 0;
+                for (i = 0; temp != NULL; i++)
+                {
+                    printf("%d. Background Process' Pid: %d Group Pid: %d Command: %s\n", i, temp->pid, temp->groupPid, temp->command);
+                    temp = temp->next;
+                }
+                /*
+                backgroundQueue* temp = backgroundQ;
+                removeChar(args[1], "%");
+                if(temp == NULL)
                     printf("There is no background process.");
-                else{
-                    ///////////////////////////////
-                    // THERE WILL BE CODED - GOKSEL//
-                    //////////////////////////////////
+                while(temp != NULL){
+                    if(temp->pid == atoi(args[1])){
+                        backgroundQ = temp->next;
+                        temp->next = NULL;
+                        free(temp);
+                        break;
+                    }
+                    temp = temp->next;
                 }
+                */
             }
+        }
+        
 
-        else if(!strcmp(args[0], "path")) {
-            findPath(args);
-            }
-
-            else {
-                //if the command is history with and index value, execute the command on that index
+        else {
+            //if the command is history with and index value, execute the command on that index
             char *newArgs[128];
             int a  = 0;
                 while(args[a] != NULL){
             a++;
             }
-                if(!strcmp(args[0], "history") && args[1] != NULL){
-            newArgs[0] = GetNth(head, getLength(head) - atoi(args[2]));
-            newArgs[0] = strtok(newArgs[0], " ");
-            newArgs[1] = NULL;
-            paths = findPath(newArgs);
-            execute(paths, newArgs, &background);
-                }
-            else {
+            if(!strcmp(args[0], "history") && args[1] != NULL){
+                newArgs[0] = GetNth(head, getLength(head) - atoi(args[2]));
+                newArgs[0] = strtok(newArgs[0], " ");
+                newArgs[1] = NULL;
+                paths = findPath(newArgs);
+                execute(paths, newArgs, &background);
+            }
+            else {	
                 paths = findPath(args);
 
                 if(background == 1)
@@ -567,26 +626,27 @@ int main(void) {
 
 
                 execute(paths, args, &background);
-            /*
-            pid_t pid;
+                /*
+                pid_t pid;
 
-            if ((pid = fork()) == -1)
-                perror("fork error");
-            //child executes the command
-            else if (pid == 0) {
-                execv(paths[0], args);
-                printf("Return not expected. Must be an execv error.n");
-            }
-            //parent waits if the command is foreground
-            else
-            {
-                if(background == 0)
-                {
-                    printf("i am parent and waiting\n");
-                    wait(NULL);
+                if ((pid = fork()) == -1)
+                    perror("fork error");
+                //child executes the command
+                else if (pid == 0) {
+                    execv(paths[0], args);
+                    printf("Return not expected. Must be an execv error.n");
                 }
+                //parent waits if the command is foreground
+                else
+                {
+                    if(background == 0)
+                    {
+                        printf("i am parent and waiting\n");
+                        wait(NULL);
+                    }
+                }
+                */
             }
-            */
         }
 }
         /** the steps are:
@@ -595,4 +655,3 @@ int main(void) {
         				(3) if background == 0, the parent will wait,
                         otherwise it will invoke the setup() function again. */
         }
-}
