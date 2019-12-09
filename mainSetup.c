@@ -286,13 +286,7 @@ static void signalHandler() {
     if(isThereAnyForegroundProcess) {
         // kill current process
         kill(currentForegroundProcess, 0);
-        if(errno == ESRCH) {
-            fprintf(stderr, "\nProcess %d not found\n", currentForegroundProcess);
-            isThereAnyForegroundProcess = 0;
-            printf("myshell: ");
-            fflush(stdout);
-        }
-        else{ // if there is still foreground process
+        if{ // if there is still foreground process
             kill(currentForegroundProcess, SIGKILL);
             waitpid(-currentForegroundProcess, &status, WNOHANG);
             printf("\n");
@@ -372,7 +366,6 @@ void enqueueBackgroundQ(pid_t pid, char* command){
         new->pid = pid;
         new->next = NULL;
         last->next = new;
-
 }
 
 void deleteByPid(int pid){
