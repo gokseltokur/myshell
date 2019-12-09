@@ -24,7 +24,6 @@ typedef struct node {
 
 typedef struct background_queue {
     pid_t pid;
-    pid_t groupPid;
     char* command;
     struct background_queue* next;
 } backgroundQueue;
@@ -353,13 +352,12 @@ void childHandler() {
     }
 }
 
-void enqueueBackgroundQ(pid_t pid, pid_t groupPid, char* command){
+void enqueueBackgroundQ(pid_t pid, char* command){
     if(backgroundQ == NULL){
         backgroundQ = (backgroundQueue*)malloc(sizeof(backgroundQueue));
         backgroundQ->command = (char*)malloc(sizeof(char)*strlen(command));
         strcpy(backgroundQ->command, command);
         backgroundQ->pid = pid;
-        backgroundQ->groupPid = groupPid;
         backgroundQ->next = NULL;
         return;
     }
@@ -372,7 +370,6 @@ void enqueueBackgroundQ(pid_t pid, pid_t groupPid, char* command){
         new->command = (char*)malloc(sizeof(char)*strlen(command));
         strcpy(new->command, command);
         new->pid = pid;
-        new->groupPid = groupPid;
         new->next = NULL;
         last->next = new;
 
@@ -437,14 +434,14 @@ void execute(char** paths, char* args[], int* background){
     // background
     else {
         // Enqueue background process and print
-        enqueueBackgroundQ(childPid, getpgrp(), args[0]);
+        enqueueBackgroundQ(childPid, args[0]);
         
         backgroundQueue* temp = backgroundQ;
         if(temp == NULL)
             printf("There is no background process.\n");
         int i = 0;
         for(i = 0; temp != NULL; i++){
-            printf("%d. Background Process' Pid: %d Group Pid: %d Command: %s\n", i , temp->pid, temp->groupPid, temp->command);
+            printf("%d. Background Process' Pid: %d Command: %s\n", i , temp->pid, temp->command);
             temp = temp->next;
         }
     }
@@ -582,7 +579,7 @@ int main(void) {
                 int i = 0;
                 for (i = 0; temp != NULL; i++)
                 {
-                    printf("%d. Background Process' Pid: %d Group Pid: %d Command: %s\n", i, temp->pid, temp->groupPid, temp->command);
+                    printf("%d. Background Process' Pid: %d Command: %s\n", i, temp->pid, temp->command);
                     temp = temp->next;
                 }
                 /*
