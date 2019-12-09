@@ -368,31 +368,19 @@ void enqueueBackgroundQ(pid_t pid, char* command){
         last->next = new;
 }
 
-void deleteByPid(int pid){
-    backgroundQueue *prev, *cur;
+void deleteByPid(backgroundQueue **head_ref, int key) 
+{ 
+    backgroundQueue* temp = *head_ref;
+    backgroundQueue* prev = *head_ref;
 
-    while(backgroundQ != NULL && backgroundQ->pid == pid){
-        prev = backgroundQ;
-        backgroundQ = backgroundQ->next;
-        free(prev);
-    }
-
-    prev = NULL;
-    cur = backgroundQ;
-
-    while(cur != NULL){
-        if(cur->pid == pid){
-            if(prev != NULL){
-                prev ->next = cur->next;
-            }
-
-            free(cur);
-            cur = prev->next;
+    while(temp != NULL){
+        if(temp->pid == key){
+            prev->next = temp->next;
+            free(temp);
+            break;
         }
-        else{
-            prev = cur;
-            cur = cur->next;
-        }
+        prev = temp;
+        temp = temp->next;
     }
 }
 
@@ -457,6 +445,7 @@ int main(void) {
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
+    int status;
     
     // sigaction init
     struct sigaction signalAction;
@@ -567,7 +556,12 @@ int main(void) {
                 // THERE WILL BE CODED - GOKSEL//
                 //////////////////////////////////
                 removeChar(args[1], '%');
-                deleteByPid(atoi(args[1]));
+                deleteByPid(&backgroundQ ,atoi(args[1]));
+                isThereAnyForegroundProcess = 1;
+                currentForegroundProcess = atoi(args[1]);
+                kill(atoi(args[1]), SIGCONT);
+                waitpid(atoi(args[1]), &status, WUNTRACED);
+
                 backgroundQueue* temp = backgroundQ;
                 int i = 0;
                 for (i = 0; temp != NULL; i++)
