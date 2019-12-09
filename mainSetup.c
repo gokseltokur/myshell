@@ -349,18 +349,32 @@ void enqueueBackgroundQ(pid_t pid, pid_t groupPid, char* command){
 
 }
 
-void dequeueBackgroundQ(int* pid, int* groupPid){
-    if(backgroundQ != NULL){
-        printf("There is no background process.");
-        return;
+void deleteByPid(int pid){
+    backgroundQueue *prev, *cur;
+
+    while(backgroundQ != NULL && backgroundQ->pid == pid){
+        prev = backgroundQ;
+        backgroundQ = backgroundQ->next;
+        free(prev);
     }
 
-    *pid = backgroundQ->pid;
-    *groupPid = backgroundQ->groupPid;
-    backgroundQueue* dequeue = backgroundQ;
-    backgroundQ = dequeue->next;
-    dequeue->next = NULL;
-    free(dequeue);
+    prev = NULL;
+    cur = backgroundQ;
+
+    while(cur != NULL){
+        if(cur->pid == pid){
+            if(prev != NULL){
+                prev ->next = cur->next;
+            }
+
+            free(cur);
+            cur = prev->next;
+        }
+        else{
+            prev = cur;
+            cur = cur->next;
+        }
+    }
 }
 
 void execute(char** paths, char* args[], int* background){
@@ -407,6 +421,16 @@ void execute(char** paths, char* args[], int* background){
     }
     *background = 0;
 
+}
+
+void removeChar(char *str, char garbage) {
+
+    char *src, *dst;
+    for (src = dst = str; *src != '\0'; src++) {
+        *dst = *src;
+        if (*dst != garbage) dst++;
+    }
+    *dst = '\0';
 }
 
 int main(void) {
@@ -472,12 +496,37 @@ int main(void) {
             }
         }
         if(!strcmp(args[0], "fg")){
+            printf("@@@@@");
             if(backgroundQ == NULL)
                 printf("There is no background process.");
             else{
                 ///////////////////////////////
                 // THERE WILL BE CODED - GOKSEL//
                 //////////////////////////////////
+                removeChar(args[1], '%');
+                deleteByPid(atoi(args[1]));
+                backgroundQueue* temp = backgroundQ;
+                int i = 0;
+                for (i = 0; temp != NULL; i++)
+                {
+                    printf("%d. Background Process' Pid: %d Group Pid: %d Command: %s\n", i, temp->pid, temp->groupPid, temp->command);
+                    temp = temp->next;
+                }
+                /*
+                backgroundQueue* temp = backgroundQ;
+                removeChar(args[1], "%");
+                if(temp == NULL)
+                    printf("There is no background process.");
+                while(temp != NULL){
+                    if(temp->pid == atoi(args[1])){
+                        backgroundQ = temp->next;
+                        temp->next = NULL;
+                        free(temp);
+                        break;
+                    }
+                    temp = temp->next;
+                }
+                */
             }
         }
         
