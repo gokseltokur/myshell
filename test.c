@@ -444,6 +444,7 @@ int main(void) {
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
+    int status;
     
     // sigaction initialization
     struct sigaction signalAction;
@@ -502,7 +503,7 @@ int main(void) {
                 in=2;
             }
 
-            if(strcmp(args[1],">>")==0){
+            else if(strcmp(args[1],">>")==0){
                 args[1]=NULL;
                 strcpy(output, args[2]);
                 out=2;
@@ -563,6 +564,10 @@ int main(void) {
 		//delete the process from the queue
                 removeChar(args[1], '%');
                 deleteByPid(atoi(args[1]));
+		isThereAnyForegroundProcess = 1;
+                currentForegroundProcess = atoi(args[1]);
+                kill(atoi(args[1]), SIGCONT);
+                waitpid(atoi(args[1]), &status, WUNTRACED);
 		continue;
         }
         
@@ -595,4 +600,4 @@ int main(void) {
                         (2) the child process will invoke execv()
         				(3) if background == 0, the parent will wait,
                         otherwise it will invoke the setup() function again. */
-        }
+       }
