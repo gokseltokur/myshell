@@ -13,8 +13,6 @@
 #include <stdint.h>
 
 #define MAX_LINE 80 /* 80 chars per line, per command, should be enough. */
-/*#define CREATE_FLAGS (O_WRONLY | O_CREAT | O_APPEND)
-#define CREATE_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)*/
 
 //creates commands linked list
 typedef struct node {
@@ -478,7 +476,6 @@ int main(void) {
 
     node_t *head;
     head = malloc(sizeof(node_t));
-
     while (1) {
         background = 0;
         printf("myshell: ");
@@ -515,62 +512,95 @@ int main(void) {
         
         // finds where '<' or '>' occurs and make that argv[i] = NULL , to ensure that command wont't read that
         if(count > 2 && args[count-2] != NULL){
-            if(strcmp(args[count-2],"<")==0){  
-                args[count-2]=NULL;
-                strcpy(input,args[count-1]);  
-                in=2;
-            }else if(strcmp(args[count-2],">")==0){
-                args[count-2]=NULL;
-                strcpy(output,args[count-1]);
-                out=2;
-            }else if(strcmp(args[count-2],"2>") == 0){
-                args[count-2]=NULL;
-                strcpy(output,args[count-1]);
-                err=1;
-            }else if(strcmp(args[count-2],">>") == 0){
-                args[count-2]=NULL;
-                strcpy(output,args[count-1]);
-                app=1;
+            pid_t cPid = fork();
+
+            // fork error
+            if (cPid < 0)
+            {
+                printf("Failed to fork\n");
+                return -1;
             }
-            printf("@@@DEBUG2@@@@\n");
-            //if '<' char was found in string inputted by user
-            if(in){
-                // fdo is file-descriptor
-                int fd0;
-                
-                if ((fd0 = open(input, O_RDONLY, 0)) < 0){
-                    perror("Couldn't open input file");
-                    exit(0);
+            if (cPid == 0){
+                if(strcmp(args[count-2],"<")==0){  
+                    args[count-2]=NULL;
+                    strcpy(input,args[count-1]);  
+                    in=1;
+                }else if(strcmp(args[count-2],">")==0){
+                    args[count-2]=NULL;
+                    strcpy(output,args[count-1]);
+                    out=1;
+                }else if(strcmp(args[count-2],"2>") == 0){
+                    args[count-2]=NULL;
+                    strcpy(output,args[count-1]);
+                    err=1;
+                }else if(strcmp(args[count-2],">>") == 0){
+                    args[count-2]=NULL;
+                    strcpy(output,args[count-1]);
+                    app=1;
                 }
-                // dup2() copies content of fdo in input of preceeding file
-                dup2(fd0, STDIN_FILENO); // STDIN_FILENO here can be replaced by 0
-                close(fd0); // necessary
+            
+                //if '<' char was found in string inputted by user
+                if(in == 1){
+                    // fdo is file-descriptor
+                    int fd0;
+                    
+                    if ((fd0 = open(input, O_RDONLY, 0)) < 0){
+                        perror("Couldn't open input file");
+                        exit(0);
+                    }
+                    // dup2() copies content of fdo in input of preceeding file
+                    dup2(fd0, STDIN_FILENO); // STDIN_FILENO here can be replaced by 0
+                    close(fd0); // necessary
+                }else if (out == 1){
+                    int fd1 ;
+                    if ((fd1 = fd1 = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0){
+                        perror("Couldn't open the output file");
+                        exit(0);
+                    }
+                    dup2(fd1, STDOUT_FILENO); // 1 here can be replaced by STDOUT_FILENO
+                    close(fd1);
+                }else if(err == 1){
+                    int fd2;
+                    if ((fd2 = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0){
+                        perror("Couldn't open the output file");
+                        exit(0);
+                    }
+                    dup2(fd2, STDERR_FILENO);
+                    close(fd2);
+                }else if(app == 1){
+                    int fd3;
+                    if ((fd3 = open(output, O_WRONLY | O_CREAT | O_APPEND, 0644)) < 0) {
+                        perror("Couldn't open the output file");
+                        exit(0);
+                    }
+                    dup2(fd3, STDOUT_FILENO);
+                    close(fd3);
+                }
+                execv(paths[0], args);
             }
-            else if (out){
-                int fd1 ;
-                if ((fd1 = fd1 = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0){
-                    perror("Couldn't open the output file");
-                    exit(0);
+
+            if(cPid > 0){
+                int status;
+                if(background == 0){
+                    isThereAnyForegroundProcess = 1;
+                    currentForegroundProcess = cPid;
+                    waitpid(cPid, &status, 0);
+                    isThereAnyForegroundProcess = 0;
+                    background = 0;
+                }else{
+                    enqueueBackgroundQ(cPid, args[0]);
+                    backgroundQueue *temp = backgroundQ;
+                    int i = 0;
+                    for (i = 0; temp != NULL; i++)
+                    {
+                        printf("%d. Background Process' Pid: %d Command: %s\n", i, temp->pid, temp->command);
+                        temp = temp->next;
+                    }
+                    background = 0 ;
                 }
-                dup2(fd1, STDOUT_FILENO);printf("DDDDDDDDDDDDDDDDDDDD\n"); // 1 here can be replaced by STDOUT_FILENO
-                close(fd1);
-            }else if(err == 1){
-                int fd2;
-                if ((fd2 = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0){
-                    perror("Couldn't open the output file");
-                    exit(0);
-                }
-                dup2(fd2, STDERR_FILENO);
-                close(fd2);
-            }else if(app == 1){
-                int fd3;
-                if ((fd3 = open(output, O_WRONLY | O_CREAT | O_APPEND, 0644)) < 0) {
-                    perror("Couldn't open the output file");
-                    exit(0);
-                }
-                dup2(fd3, STDOUT_FILENO);
-                close(fd3);
             }
+
+
         }
 
         //if the command is history, print the list
@@ -588,9 +618,6 @@ int main(void) {
             if(backgroundQ == NULL)
                 printf("There is no background process.");
             else{
-                ///////////////////////////////
-                // THERE WILL BE CODED - GOKSEL//
-                //////////////////////////////////
                 removeChar(args[1], '%');
                 deleteByPid(atoi(args[1]));
                 isThereAnyForegroundProcess = 1;
@@ -605,21 +632,6 @@ int main(void) {
                     temp = temp->next;
                 }
                 continue;
-                /*
-                backgroundQueue* temp = backgroundQ;
-                removeChar(args[1], "%");
-                if(temp == NULL)
-                    printf("There is no background process.");
-                while(temp != NULL){
-                    if(temp->pid == atoi(args[1])){
-                        backgroundQ = temp->next;
-                        temp->next = NULL;
-                        free(temp);
-                        break;
-                    }
-                    temp = temp->next;
-                }
-                */
             }
         }
         
@@ -645,26 +657,6 @@ int main(void) {
                     args[count-1] = NULL;
 
                 execute(paths, args, &background);
-                /*
-                pid_t pid;
-
-                if ((pid = fork()) == -1)
-                    perror("fork error");
-                //child executes the command
-                else if (pid == 0) {
-                    execv(paths[0], args);
-                    printf("Return not expected. Must be an execv error.n");
-                }
-                //parent waits if the command is foreground
-                else
-                {
-                    if(background == 0)
-                    {
-                        printf("i am parent and waiting\n");
-                        wait(NULL);
-                    }
-                }
-                */
             }
         }
         *args = NULL;
