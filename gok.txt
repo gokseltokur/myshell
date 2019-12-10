@@ -1,0 +1,38 @@
+DDDDDDDDDDDDDDDDDDDD
+>
+a.out
+at.txt
+a.txt
+b.txt
+CSE3033_Project2.pdf
+c.txt
+file.in
+file.out
+goksel.txt
+gok.txt
+mainSetup
+mainSetup.c
+mainSetup.o
+test
+translator.txt
+myshell: ^d was entered, end of user command streamtotal 316
+total 316
+total 316
+-rw-r--r-- 1 goksel goksel    226 Dec 10 21:35 >
+-rw-r--r-- 1 goksel goksel    150 Dec 10 21:46 >>
+-rw-r--r-- 1 goksel goksel     72 Dec 10 21:30 a.out
+-rw-r--r-- 1 goksel goksel     61 Dec  9 15:24 at.txt
+-rw-r--r-- 1 goksel goksel    191 Dec 10 21:14 a.txt
+-rw-r--r-- 1 goksel goksel     67 Dec  9 15:24 b.txt
+-rw-rw-r-- 1 goksel goksel 182325 Nov 13 13:02 CSE3033_Project2.pdf
+-rw-r--r-- 1 goksel goksel  17776 Dec  9 15:24 c.txt
+-rw-r--r-- 1 goksel goksel     14 Dec  9 17:20 file.in
+-rw-r--r-- 1 goksel goksel    197 Dec 10 21:26 file.out
+drwxr-xr-x 2 goksel goksel   4096 Dec 10 21:34 goksel.txt
+-rw-r--r-- 1 goksel goksel    236 Dec 10 21:53 gok.txt
+-rwxr-xr-x 1 goksel goksel  22664 Dec 10 21:55 mainSetup
+-rw-r--r-- 1 goksel goksel  20824 Dec 10 21:55 mainSetup.c
+-rwxr-xr-x 1 goksel goksel  19184 Dec  9 16:16 mainSetup.o
+-rw-r--r-- 1 goksel goksel    521 Dec  9 15:24 test
+-rw-rw-r-- 1 goksel goksel    103 Dec  6 00:59 translator.txt
+myshell: ^d was entered, end of user command stream

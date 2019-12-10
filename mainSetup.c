@@ -56,9 +56,11 @@ void setup(char inputBuffer[], char *args[], int *background) {
        read in. inputBuffer is not a null terminated C-string. */
 
     start = -1;
-    if (length == 0)
+    if (length == 0){
+        printf("^d was entered, end of user command stream");
         exit(0); /* ^d was entered, end of user command stream */
-
+    }
+    
     /* the signal interrupted the read system call */
     /* if the process is in the read() system call, read returns -1
     However, if this occurs, errno is set to EINTR. We can check this  value
@@ -67,7 +69,6 @@ void setup(char inputBuffer[], char *args[], int *background) {
         perror("error reading the command");
         exit(-1); /* terminate with error code of -1 */
     }
-
     printf(">>%s<<\n", inputBuffer);
     for (i = 0; i < length; i++) {
         /* examine every character in the inputBuffer */
@@ -463,6 +464,7 @@ int main(void) {
     int background;               /* equals 1 if a command is followed by '&' */
     char *args[MAX_LINE / 2 + 1]; /*command line arguments */
     char **paths;
+    int status;
     
     // sigaction init
     struct sigaction signalAction;
@@ -483,13 +485,13 @@ int main(void) {
         fflush(NULL);
         // seperates the command by spaces, adds to the args array and check if & character entered
         setup(inputBuffer, args, &background);
-
         // Null argument handler
         if (args[0] == NULL)
             continue;
         
 
         char* mergedArgs = (char*)malloc(sizeof(char)* 128);
+        //char* mergedArgs[MAX_LINE/2 +1 ];
         strcpy(mergedArgs, "");
 
         //concatenate the commands
@@ -499,7 +501,6 @@ int main(void) {
                 strcat(mergedArgs, " ");
                 count++;
         }
-
         //add the commands to the list if the command is not history
         if(strcmp(args[0], "history")){
                 push(head, mergedArgs);
@@ -508,48 +509,67 @@ int main(void) {
         //if there are more than 10 commands delete the first executed command
         if(getLength(head) == 10)
             pop(&head);
-
-        int fd0,fd1,in=0,out=0;
+        int fd0,fd1,in=0,out=0,err=0,app=0;
         char input[64],output[64];
-
+        
+        
         // finds where '<' or '>' occurs and make that argv[i] = NULL , to ensure that command wont't read that
-        if(args[1] != NULL){
-
-            if(strcmp(args[1],"<")==0){
-                args[1]=NULL;
-                strcpy(input,args[2]);
+        if(count > 2 && args[count-2] != NULL){
+            if(strcmp(args[count-2],"<")==0){  
+                args[count-2]=NULL;
+                strcpy(input,args[count-1]);  
                 in=2;
-            }
-
-            if(strcmp(args[1],">")==0){
-                args[1]=NULL;
-                strcpy(output,args[2]);
+            }else if(strcmp(args[count-2],">")==0){
+                args[count-2]=NULL;
+                strcpy(output,args[count-1]);
                 out=2;
+            }else if(strcmp(args[count-2],"2>") == 0){
+                args[count-2]=NULL;
+                strcpy(output,args[count-1]);
+                err=1;
+            }else if(strcmp(args[count-2],">>") == 0){
+                args[count-2]=NULL;
+                strcpy(output,args[count-1]);
+                app=1;
             }
-
+            printf("@@@DEBUG2@@@@\n");
             //if '<' char was found in string inputted by user
             if(in){
                 // fdo is file-descriptor
                 int fd0;
+                
                 if ((fd0 = open(input, O_RDONLY, 0)) < 0){
                     perror("Couldn't open input file");
                     exit(0);
                 }
                 // dup2() copies content of fdo in input of preceeding file
-                dup2(fd0, 0); // STDIN_FILENO here can be replaced by 0
+                dup2(fd0, STDIN_FILENO); // STDIN_FILENO here can be replaced by 0
                 close(fd0); // necessary
             }
-
-            //if '>' char was found in string inputted by user
-            if (out){
+            else if (out){
                 int fd1 ;
-                if ((fd1 = creat(output, 0644)) < 0){
+                if ((fd1 = fd1 = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0){
                     perror("Couldn't open the output file");
                     exit(0);
                 }
-
-                dup2(fd1, STDOUT_FILENO); // 1 here can be replaced by STDOUT_FILENO
+                dup2(fd1, STDOUT_FILENO);printf("DDDDDDDDDDDDDDDDDDDD\n"); // 1 here can be replaced by STDOUT_FILENO
                 close(fd1);
+            }else if(err == 1){
+                int fd2;
+                if ((fd2 = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644)) < 0){
+                    perror("Couldn't open the output file");
+                    exit(0);
+                }
+                dup2(fd2, STDERR_FILENO);
+                close(fd2);
+            }else if(app == 1){
+                int fd3;
+                if ((fd3 = open(output, O_WRONLY | O_CREAT | O_APPEND, 0644)) < 0) {
+                    perror("Couldn't open the output file");
+                    exit(0);
+                }
+                dup2(fd3, STDOUT_FILENO);
+                close(fd3);
             }
         }
 
@@ -565,7 +585,6 @@ int main(void) {
             }
         }
         if(!strcmp(args[0], "fg")){
-            printf("@@@@@");
             if(backgroundQ == NULL)
                 printf("There is no background process.");
             else{
@@ -574,6 +593,10 @@ int main(void) {
                 //////////////////////////////////
                 removeChar(args[1], '%');
                 deleteByPid(atoi(args[1]));
+                isThereAnyForegroundProcess = 1;
+                currentForegroundProcess = atoi(args[1]);
+                kill(atoi(args[1]), SIGCONT);
+                waitpid(atoi(args[1]), &status, WUNTRACED);
                 backgroundQueue* temp = backgroundQ;
                 int i = 0;
                 for (i = 0; temp != NULL; i++)
@@ -581,6 +604,7 @@ int main(void) {
                     printf("%d. Background Process' Pid: %d Command: %s\n", i, temp->pid, temp->command);
                     temp = temp->next;
                 }
+                continue;
                 /*
                 backgroundQueue* temp = backgroundQ;
                 removeChar(args[1], "%");
@@ -620,7 +644,6 @@ int main(void) {
                 if(background == 1)
                     args[count-1] = NULL;
 
-
                 execute(paths, args, &background);
                 /*
                 pid_t pid;
@@ -644,6 +667,7 @@ int main(void) {
                 */
             }
         }
+        *args = NULL;
 }
         /** the steps are:
                         (1) fork a child process using fork()

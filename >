@@ -1,5 +1,6 @@
 DDDDDDDDDDDDDDDDDDDD
 >
+a.out
 at.txt
 a.txt
 b.txt
@@ -7,9 +8,12 @@ CSE3033_Project2.pdf
 c.txt
 file.in
 file.out
+goksel.txt
+gok.txt
 mainSetup
 mainSetup.c
 mainSetup.o
 test
 translator.txt
+myshell: 
 myshell: ^d was entered, end of user command stream
