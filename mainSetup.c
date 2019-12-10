@@ -1,3 +1,8 @@
+/*
+Göksel Tokur 150116049
+Buse Batman 150117011
+*/
+
 #define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
@@ -194,27 +199,6 @@ char** findPath(char *args[]) {
     return realPaths;
     }
 }
-
-/*
-char** splitByAmpersandOrSemiColumn(char *args[]){
-
-    char** newArgs;
-    newArgs = (char**)malloc(sizeof(char*)*32);
-
-    int count = 0;
-    while (args[count] != NULL){
-        count++;
-    }
-
-    int i;
-    for(i = 0; i < count; i++ ){
-        newArgs[i] = (char *)malloc(sizeof(char)*128);
-        newArgs[i] = args[i];
-        if(strcmp(args[i], "&"))
-            break;
-    }
-    return newArgs;
-}*/
 
 //adds a new command to the list
 void push(node_t * head, char* val) {
@@ -512,15 +496,6 @@ int main(void) {
         
         // finds where '<' or '>' occurs and make that argv[i] = NULL , to ensure that command wont't read that
         if(count > 2 && args[count-2] != NULL){
-            pid_t cPid = fork();
-
-            // fork error
-            if (cPid < 0)
-            {
-                printf("Failed to fork\n");
-                return -1;
-            }
-            if (cPid == 0){
                 if(strcmp(args[count-2],"<")==0){  
                     args[count-2]=NULL;
                     strcpy(input,args[count-1]);  
@@ -576,31 +551,6 @@ int main(void) {
                     dup2(fd3, STDOUT_FILENO);
                     close(fd3);
                 }
-                execv(paths[0], args);
-            }
-
-            if(cPid > 0){
-                int status;
-                if(background == 0){
-                    isThereAnyForegroundProcess = 1;
-                    currentForegroundProcess = cPid;
-                    waitpid(cPid, &status, 0);
-                    isThereAnyForegroundProcess = 0;
-                    background = 0;
-                }else{
-                    enqueueBackgroundQ(cPid, args[0]);
-                    backgroundQueue *temp = backgroundQ;
-                    int i = 0;
-                    for (i = 0; temp != NULL; i++)
-                    {
-                        printf("%d. Background Process' Pid: %d Command: %s\n", i, temp->pid, temp->command);
-                        temp = temp->next;
-                    }
-                    background = 0 ;
-                }
-            }
-
-
         }
 
         //if the command is history, print the list
