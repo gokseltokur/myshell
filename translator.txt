@@ -1,2 +1,0 @@
-ANY_FOREGROUND_PROCESS = isThereForegroundProcess
-CURRENT_FOREGROUND_PROCESS = currentForegroundProcess
